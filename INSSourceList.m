@@ -14,6 +14,8 @@
 
 #import "INSSourceList.h"
 
+#define INSSourceListInternalDragPboardType @"outlineInternalDragPboardType"
+
 @interface INSSourceListTransformToUppercase : NSValueTransformer
 
 @end
@@ -90,6 +92,24 @@
             [_outlineView bind:NSSelectionIndexPathsBinding toObject:self.treeController withKeyPath:@"selectionIndexPaths" options:nil];
             [_outlineView bind:NSSortDescriptorsBinding toObject:self.treeController withKeyPath:@"sortDescriptors" options:nil];
             [_outlineView setDelegate:self];
+            [_outlineView setDataSource:self];
+            
+            NSMutableArray *draggedTypes = [NSMutableArray array];
+            
+            if ([self.delegate respondsToSelector:@selector(sourceListShouldSupportInternalDragAndDrop)] && [self.delegate sourceListShouldSupportInternalDragAndDrop]) {
+                [draggedTypes addObject:INSSourceListInternalDragPboardType];
+            }
+            
+            if ([self.delegate respondsToSelector:@selector(sourceListShouldSupportDragAndDrop)] && [self.delegate sourceListShouldSupportDragAndDrop]) {
+                if ([self.delegate respondsToSelector:@selector(supportedDraggedTypes)]) {
+                    [draggedTypes addObjectsFromArray:[self.delegate supportedDraggedTypes]];
+                }
+                else {
+                    @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:[NSString stringWithFormat:@"-[%@ %@]: delegate wants external drag and drop on SourceList, but does not provide an array of supportedDraggedTypes.", NSStringFromClass([self class]), NSStringFromSelector(_cmd)] userInfo:nil];
+                }
+            }
+            
+            [_outlineView registerForDraggedTypes:draggedTypes];
             
             [_outlineView setFloatsGroupRows:NO];
             
@@ -170,7 +190,7 @@
                     i = 0;
                     NSIndexPath *toSelect = nil;
                     for (NSTreeNode *node in content) {
-                        toSelect = [self recursiveFindItemWithObject:node andParentIndex:[NSIndexPath indexPathWithIndex:i]];
+                        toSelect = [self recursiveFindItemWithObject:node andParentIndex:[NSIndexPath indexPathWithIndex:i] withUniqueIdentifier:self.lastSelectedItem];
                         
                         if (toSelect.length > 1) {
                             break;
@@ -217,18 +237,17 @@
     }
 }
 
-- (NSIndexPath*)recursiveFindItemWithObject:(NSTreeNode*)node andParentIndex:(NSIndexPath*)originalIndex {
+- (NSIndexPath*)recursiveFindItemWithObject:(NSTreeNode*)node andParentIndex:(NSIndexPath*)originalIndex withUniqueIdentifier:(NSString*)uniqueIdentifier {
     NSArray *children = [[node childNodes] sortedArrayUsingDescriptors:[self.delegate sortDescriptors]];
     
     if (children.count > 0) {
         int x = 0;
         for (NSTreeNode *node in children) {
-            if ([[self.delegate uniqueIdentifierForItem:[node representedObject]] isEqualToString:self.lastSelectedItem]) {
+            if ([[self.delegate uniqueIdentifierForItem:[node representedObject]] isEqualToString:uniqueIdentifier]) {
                 return [originalIndex indexPathByAddingIndex:x];
             }
             else {
-                NSIndexPath *path = nil;
-                path = [self recursiveFindItemWithObject:node andParentIndex:[originalIndex indexPathByAddingIndex:x]];
+                NSIndexPath *path = [self recursiveFindItemWithObject:node andParentIndex:[originalIndex indexPathByAddingIndex:x] withUniqueIdentifier:uniqueIdentifier];
                 if (path.length > originalIndex.length+1) {
                     return path;
                 }
@@ -256,6 +275,42 @@
     }
 }
 
+- (id)itemWithUniqueIdentifier:(NSString*)uniqueIdentifier {
+    for (NSTreeNode *node in self.content) {
+        if ([[self.delegate uniqueIdentifierForItem:[node representedObject]] isEqualToString:uniqueIdentifier]) {
+            return [node representedObject];
+        }
+        else {
+            id item = [self recursiveItemWithNode:node andUniqueIdentifier:uniqueIdentifier];
+            
+            if (item != nil) {
+                return item;
+            }
+        }
+    }
+    return nil;
+}
+
+- (id)recursiveItemWithNode:(NSTreeNode*)node andUniqueIdentifier:(NSString*)uniqueIdentifier {
+    NSArray *children = [node childNodes];
+    
+    if (children.count > 0) {
+        for (NSTreeNode *node in children) {
+            if ([[self.delegate uniqueIdentifierForItem:[node representedObject]] isEqualToString:uniqueIdentifier]) {
+                return [node representedObject];
+            }
+            else {
+                id item = [self recursiveItemWithNode:node andUniqueIdentifier:uniqueIdentifier];
+                
+                if (item != nil) {
+                    return item;
+                }
+            }
+        }
+    }
+    return nil;
+}
+
 #pragma mark -
 #pragma mark Selection
 
@@ -267,7 +322,7 @@
     return objs;
 }
 
-#pragma mark - NSOutlineView
+#pragma mark - NSOutlineViewDelegate
 
 
 - (BOOL)outlineView:(NSOutlineView *)outlineView shouldSelectItem:(id)item {
@@ -337,6 +392,74 @@
     }
     
     return view;
+}
+
+#pragma mark - NSOutlineViewDataSource
+
+- (BOOL)outlineView:(NSOutlineView *)outlineView acceptDrop:(id<NSDraggingInfo>)info item:(id)item childIndex:(NSInteger)index {
+    if ([[info draggingPasteboard] dataForType:INSSourceListInternalDragPboardType] != nil) {
+        NSData *draggedItemsData = [[info draggingPasteboard] dataForType:INSSourceListInternalDragPboardType];
+        NSArray *items = [NSKeyedUnarchiver unarchiveObjectWithData:draggedItemsData];
+        
+        NSMutableArray *realObjs = [NSMutableArray array];
+        for (NSString *identifier in items) {
+            id item = [self itemWithUniqueIdentifier:identifier];
+            if (item != nil) {
+                [realObjs addObject:item];
+            }
+        }
+        
+        if (index == -1) {
+            return [self.delegate sourceListShouldAcceptDropOfItems:realObjs onItem:[[item representedObject] representedObject]];
+        }
+    }
+    
+    return NO;
+}
+
+- (NSDragOperation)outlineView:(NSOutlineView *)outlineView validateDrop:(id<NSDraggingInfo>)info proposedItem:(id)item proposedChildIndex:(NSInteger)index {
+    if ([info draggingSource] == self.outlineView) {
+        if ([[info draggingPasteboard] dataForType:INSSourceListInternalDragPboardType] != nil) {
+            NSData *draggedItemsData = [[info draggingPasteboard] dataForType:INSSourceListInternalDragPboardType];
+            NSArray *items = [NSKeyedUnarchiver unarchiveObjectWithData:draggedItemsData];
+            
+            for (NSString *identifier in items) {
+                if (index == -1) {
+                    id reprObj = [[item parentNode] representedObject];
+                    
+                    if ([reprObj respondsToSelector:@selector(representedObject)]) {
+                        reprObj = [reprObj representedObject];
+                        
+                        if ([identifier isEqualToString:[self.delegate uniqueIdentifierForItem:reprObj]]) {
+                            return NSDragOperationNone;
+                        }
+                    }
+                }
+                else {
+                    if ([identifier isEqualToString:[self.delegate uniqueIdentifierForItem:[[item representedObject] representedObject]]]) {
+                        return NSDragOperationNone;
+                    }
+                }
+            }
+        }
+    }
+    
+    return NSDragOperationGeneric;
+}
+
+- (BOOL)outlineView:(NSOutlineView *)outlineView writeItems:(NSArray *)items toPasteboard:(NSPasteboard *)pasteboard {
+    if ([self.delegate sourceListShouldSupportInternalDragAndDrop]) {
+        NSMutableArray *realItems = [NSMutableArray array];
+        for (NSTreeNode *node in items) {
+            [realItems addObject:[self.delegate uniqueIdentifierForItem:[[node representedObject] representedObject]]];
+        }
+        
+        NSData *realData = [NSKeyedArchiver archivedDataWithRootObject:realItems];
+        [pasteboard declareTypes:[NSArray arrayWithObject:INSSourceListInternalDragPboardType] owner:self];
+        [pasteboard setData:realData forType:INSSourceListInternalDragPboardType];
+        return YES;
+    }
+    return NO;
 }
 
 #pragma mark - NSTextFieldDelegate

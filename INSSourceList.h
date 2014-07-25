@@ -158,6 +158,50 @@
 **/
 - (void)sourceListSelectionDidChange:(NSNotification*)notification;
 
+/**
+ *  @name Supporting Drag and Drop
+**/
+
+/**
+ *  Enables or disables Drag and Drop from outside the SourceList.
+ *
+ *  @discussion This method is optional. If no implementation is found, drag and drop is disabled.
+ *  @see sourceListShouldSupportInternalDragAndDrop
+ *  @since version 1.1 or later.
+ *  @return YES if the SourceList should support drag and drop.
+**/
+- (BOOL)sourceListShouldSupportDragAndDrop;
+
+/**
+ *  Enables or disables Drag and Drop from inside the SourceList.
+ *
+ *  @discussion This method is optional. If no implementation is found, dragging is only allowed depending on the supportedDraggedTypes.
+ *  @see sourceListShouldSupportDragAndDrop
+ *  @since version 1.1 or later.
+ *  @return YES if the SourceList should support drag and drop between its items.
+**/
+- (BOOL)sourceListShouldSupportInternalDragAndDrop;
+
+/**
+ *  Returns an array of supported types that can be dragged onto the SourceList.
+ *
+ *  @discussion The SourceList automatically enables the ability to drag its items.
+ *  @see sourceListShouldSupportInternalDragAndDrop
+ *  @since version 1.1 or later.
+ *  @return A NSArray of valid NSPasteboard types that should be accepted by the SourceList.
+**/
+- (NSArray*)supportedDraggedTypes;
+
+/**
+ *  Called when an item has been dropped onto another.
+ *
+ *  @discussion The delegate should update its data accordingly to the drop.
+ *  @see sourceListShouldSupportInternalDragAndDrop
+ *  @since version 1.1 or later
+ *  @return YES if the drop should be accepted.
+**/
+- (BOOL)sourceListShouldAcceptDropOfItems:(NSArray*)items onItem:(id)item;
+
 @end
 
 #pragma mark - INSSourceList
@@ -184,7 +228,7 @@
  *  monitored entities is affected.
  *
 **/
-@interface INSSourceList : NSObject <NSOutlineViewDelegate, NSTextFieldDelegate>
+@interface INSSourceList : NSObject <NSOutlineViewDelegate, NSOutlineViewDataSource, NSTextFieldDelegate>
 
 /**
  *  @name Properties

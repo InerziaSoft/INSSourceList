@@ -3,13 +3,17 @@
     <entity name="Item" syncable="YES">
         <attribute name="added" optional="YES" attributeType="Date" syncable="YES"/>
         <attribute name="name" optional="YES" attributeType="String" syncable="YES"/>
+        <relationship name="children" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="Item" inverseName="parent" inverseEntity="Item" syncable="YES"/>
+        <relationship name="parent" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Item" inverseName="children" inverseEntity="Item" syncable="YES"/>
     </entity>
     <entity name="OtherItem" syncable="YES">
         <attribute name="added" optional="YES" attributeType="Date" syncable="YES"/>
         <attribute name="name" optional="YES" attributeType="String" syncable="YES"/>
+        <relationship name="children" optional="YES" toMany="YES" deletionRule="No Action" destinationEntity="OtherItem" inverseName="parent" inverseEntity="OtherItem" syncable="YES"/>
+        <relationship name="parent" optional="YES" maxCount="1" deletionRule="No Action" destinationEntity="OtherItem" inverseName="children" inverseEntity="OtherItem" syncable="YES"/>
     </entity>
     <elements>
-        <element name="Item" positionX="-63" positionY="-18" width="128" height="75"/>
-        <element name="OtherItem" positionX="-54" positionY="0" width="128" height="73"/>
+        <element name="Item" positionX="-63" positionY="-18" width="128" height="105"/>
+        <element name="OtherItem" positionX="-54" positionY="0" width="128" height="103"/>
     </elements>
 </model>

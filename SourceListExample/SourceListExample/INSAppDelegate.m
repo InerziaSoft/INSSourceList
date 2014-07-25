@@ -65,18 +65,25 @@
     if (![item isMemberOfClass:[NSManagedObject class]]) {
         switch ([[item valueForKey:@"code"] intValue]) {
             case -30: {
-                NSArray *req = [self.managedObjectContext executeFetchRequest:[[NSFetchRequest alloc] initWithEntityName:@"Item"] error:nil];
+                NSFetchRequest *requ = [[NSFetchRequest alloc] initWithEntityName:@"Item"];
+                [requ setPredicate:[NSPredicate predicateWithFormat:@"parent == nil"]];
+                NSArray *req = [self.managedObjectContext executeFetchRequest:requ error:nil];
                 return req; }
                 
             case -40: {
-                NSArray *req = [self.managedObjectContext executeFetchRequest:[[NSFetchRequest alloc] initWithEntityName:@"OtherItem"] error:nil];
+                NSFetchRequest *requ = [[NSFetchRequest alloc] initWithEntityName:@"OtherItem"];
+                [requ setPredicate:[NSPredicate predicateWithFormat:@"parent == nil"]];
+                NSArray *req = [self.managedObjectContext executeFetchRequest:requ error:nil];
                 return req; }
                 
             default:
+                return [NSArray array];
                 break;
         }
     }
-    return [NSArray array];
+    else {
+        return [[item valueForKey:@"children"] allObjects];
+    }
 }
 
 /*
@@ -203,6 +210,25 @@
 */
 - (NSArray*)sortDescriptors {
     return @[[NSSortDescriptor sortDescriptorWithKey:@"representedObject.name" ascending:YES]];
+}
+
+- (BOOL)sourceListShouldSupportInternalDragAndDrop {
+    return YES;
+}
+
+- (BOOL)sourceListShouldAcceptDropOfItems:(NSArray *)items onItem:(id)item {
+    if ([item isMemberOfClass:[NSManagedObject class]]) {
+        for (NSManagedObject *obj in items) {
+            [obj setValue:item forKey:@"parent"];
+        }
+    }
+    else {
+        for (NSManagedObject *obj in items) {
+            [obj setValue:nil forKey:@"parent"];
+        }
+    }
+    
+    return YES;
 }
 
 #pragma mark -
