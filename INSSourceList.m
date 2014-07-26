@@ -424,21 +424,24 @@
             NSArray *items = [NSKeyedUnarchiver unarchiveObjectWithData:draggedItemsData];
             
             for (NSString *identifier in items) {
-                if (index == -1) {
-                    id reprObj = [[item parentNode] representedObject];
+//                if (index == -1) {
+//
+//                }
+//                else {
+//                    if ([identifier isEqualToString:[self.delegate uniqueIdentifierForItem:[[item representedObject] representedObject]]]) {
+//                        return NSDragOperationNone;
+//                    }
+//                }
+                NSTreeNode *parent = item;
+                
+                while ([[parent representedObject] respondsToSelector:@selector(representedObject)]) {
+                    id reprObj = [[parent representedObject] representedObject];
                     
-                    if ([reprObj respondsToSelector:@selector(representedObject)]) {
-                        reprObj = [reprObj representedObject];
-                        
-                        if ([identifier isEqualToString:[self.delegate uniqueIdentifierForItem:reprObj]]) {
-                            return NSDragOperationNone;
-                        }
-                    }
-                }
-                else {
-                    if ([identifier isEqualToString:[self.delegate uniqueIdentifierForItem:[[item representedObject] representedObject]]]) {
+                    if ([identifier isEqualToString:[self.delegate uniqueIdentifierForItem:reprObj]]) {
                         return NSDragOperationNone;
                     }
+                    
+                    parent = [parent parentNode];
                 }
             }
         }

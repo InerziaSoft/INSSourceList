@@ -220,15 +220,19 @@
     if ([item isMemberOfClass:[NSManagedObject class]]) {
         for (NSManagedObject *obj in items) {
             [obj setValue:item forKey:@"parent"];
+            return YES;
         }
     }
     else {
         for (NSManagedObject *obj in items) {
-            [obj setValue:nil forKey:@"parent"];
+            if (([obj.entity.name isEqualToString:@"Item"] && [[item valueForKey:@"code"] intValue] == -30) || ([obj.entity.name isEqualToString:@"OtherItem"] && [[item valueForKey:@"code"] intValue] == -40)) {
+                [obj setValue:nil forKey:@"parent"];
+                return YES;
+            }
         }
     }
     
-    return YES;
+    return NO;
 }
 
 #pragma mark -
