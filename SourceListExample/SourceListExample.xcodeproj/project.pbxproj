@@ -334,6 +334,7 @@
 				FAEAD93C197FEA2400E6F428 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 

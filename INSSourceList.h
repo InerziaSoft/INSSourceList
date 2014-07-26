@@ -141,7 +141,8 @@
 /**
  *  Returns a list of sortDescriptors that will be used to sort the SourceList tree controller.
  *
- *  @discussion You should always perform any sort on the representedObject key. For example, if you want to sort by a key named "key", you should set up your sortDescriptor to sort on "representedObject.key".
+ *  @discussion You should always perform any sort on the representedObject key. For example, if you want to sort by a key named "key", you should set up your sortDescriptor to sort on "representedObject.key". If you want to support the automatic row re-ordering of INSSourceList, one of the sortDescriptors returned from this function, must include the indexKey.
+ *  @see indexKey
  *  @return A NSArray of NSSortDescriptors that will be passed to the tree controller.
  **/
 - (NSArray*)sortDescriptors;
@@ -197,10 +198,57 @@
  *
  *  @discussion The delegate should update its data accordingly to the drop.
  *  @see sourceListShouldSupportInternalDragAndDrop
+ *  @param items An array of items that the user has dropped.
+ *  @param item The item on which the items were dropped.
  *  @since version 1.1 or later
  *  @return YES if the drop should be accepted.
 **/
 - (BOOL)sourceListShouldAcceptDropOfItems:(NSArray*)items onItem:(id)item;
+
+/**
+ *  Enables or disables drag and drop reordering in the SourceList.
+ *
+ *  @discussion If this method returns NO, the user will be able to drag items from the SourceList only onto other items and not in between. This method is ignored when sourceListShouldSupportInternalDragAndDrop returns NO.
+ *  @see sourceListShouldSupportInternalDragAndDrop
+ *  @since version 1.1 or later
+ *  @return YES if the SourceList should allow drag and drop reordering.
+ **/
+- (BOOL)sourceListShouldAllowItemsReordering;
+
+/**
+ *  Called when an item has been dropped onto a particular position.
+ *
+ *  @discussion The delegate should update its data in order to follow the new sorting. If this method is not implemented, the SourceList will use indexKey to determine the new sorting and then call sourceListShouldAcceptDropOfItems:onItem: to let the delegate updates new possible relationships.
+ *  @see sourceListShouldSupportInternalDragAndDrop, sourceListShouldAllowItemsReordering
+ *  @param items An array of items that the user has dropped.
+ *  @param parent The object on which the items were dropped.
+ *  @param index An index representing the position on which the items were dropped, in relation to the parent.
+ *  @since version 1.1 or later
+ *  @return YES if the drop should be accepted.
+**/
+- (BOOL)sourceListShouldAcceptDropOfItems:(NSArray*)items onItem:(id)parent asChildrenAtIndex:(NSInteger)index;
+
+/**
+ *  Returns the name of the key that should be used to handle row re-ordering in the SourceList.
+ *
+ *  @discussion This method is called when no implementation of sourceListShouldAcceptDropOfItems:onItem:asChildrenAtIndex is found in the delegate. The SourceList will calculate all the objects indexes according to the user intention and will use this key to store them. As a result, the returning key must be able to contain an NSNumber value.
+ *  @warning If this key is not included in one or more NSSortDescriptor(s) returned by sortDescriptors, automatic reordering won't work correctly. If any of the conditions described previously leads to calling this method and the return value is nil, the behavior of the SourceList is undefined.
+ *  @since version 1.1 or later
+ *  @return A NSString representing the key that should be used to store object indexes.
+**/
+- (NSString*)indexKey;
+
+/**
+ *  Returns the parent object of a specified item.
+ *
+ *  @discussion This method is required as a workaround to a bug of the NSTreeController that deletes the original NSIndexPath of a dragged object.
+ *  @warning If sourceListShouldAllowItemsReordering returns YES, this method is foundamental for the entire operation to work properly. If this method is not implemented, an exception will be thrown and the reordering operation will be dismissed.
+ *  @param item The item for which we are asking its parent.
+ *  @see sourceListShouldAllowItesmReordering
+ *  @since version 1.1 or later
+ *  @return A NSString representing the unique identifier of the parent.
+**/
+- (NSString*)parentUniqueIdentifierForItem:(id)item;
 
 @end
 
@@ -322,6 +370,16 @@
  *  @discussion This method is automatically called by the designated initializer.
 **/
 - (void)rearrangeObjects;
+
+/**
+ *  Returns the number of children of a specified item.
+ *
+ *  @since version 1.1 or later
+ *  @see rearrangeObjects
+ *  @param item The unique identifier of the item for which we are asking its children count.
+ *  @return A NSInteger representing the number of children related to item.
+**/
+- (NSInteger)countOfChildrenForUniqueIdentifier:(NSString*)item;
 
 /**
  *  @name Managing Selections

@@ -52,7 +52,7 @@ Other Stuff
 ## What's Missing
 The following features are planned:
 
-* Drag and Drop support
+* Drag and Drop support (now partial implemented)
 
 ## Special Thanks
 * The StackOverflow community

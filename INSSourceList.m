@@ -16,12 +16,12 @@
 
 #define INSSourceListInternalDragPboardType @"outlineInternalDragPboardType"
 
+#pragma mark -
+#pragma mark ValueTransformer
+
 @interface INSSourceListTransformToUppercase : NSValueTransformer
 
 @end
-
-#pragma mark -
-#pragma mark ValueTransformer
 
 @implementation INSSourceListTransformToUppercase
 
@@ -67,6 +67,44 @@
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(contextDidChange:) name:NSManagedObjectContextObjectsDidChangeNotification object:_moc];
     }
     return self;
+}
+
+#pragma mark -
+#pragma mark Description
+
+- (NSString*)description {
+    NSMutableString *result = [NSMutableString string];
+    [result appendString:@"\n"];
+    for (NSTreeNode *node in [self.content sortedArrayUsingDescriptors:[self.delegate sortDescriptors]]) {
+        [result appendString:[NSString stringWithFormat:@"#(%@) ", [[node representedObject] valueForKeyPath:[self.delegate indexKey]]]];
+        [result appendString:[[node representedObject] valueForKeyPath:[self.delegate nameKey]]];
+        [result appendString:@"\n"];
+        
+        if (node.childNodes.count > 0) {
+            [result appendString:[self recursiveStringWithNode:node withLevel:1]];
+        }
+    }
+    
+    return result;
+}
+
+- (NSString*)recursiveStringWithNode:(NSTreeNode*)node withLevel:(int)level {
+    NSMutableString *result = [NSMutableString string];
+    for (NSTreeNode *child in [node.childNodes sortedArrayUsingDescriptors:[self.delegate sortDescriptors]]) {
+        for (int i = 0; i < level; i++) {
+            [result appendString:@"\t"];
+        }
+        
+        [result appendString:[NSString stringWithFormat:@"#(%@) ", [[child representedObject] valueForKeyPath:[self.delegate indexKey]]]];
+        [result appendString:[[child representedObject] valueForKeyPath:[self.delegate nameKey]]];
+        [result appendString:@"\n"];
+        
+        if (child.childNodes.count > 0) {
+            [result appendString:[self recursiveStringWithNode:child withLevel:level+1]];
+        }
+    }
+    
+    return result;
 }
 
 #pragma mark -
@@ -169,8 +207,8 @@
         if (roots != nil && roots.count > 0) {
             int i = 0;
             for (id obj in roots) {
-                NSTreeNode *node = [NSTreeNode treeNodeWithRepresentedObject:obj];
                 NSIndexPath *originalIndex = [NSIndexPath indexPathWithIndex:i];
+                NSTreeNode *node = [NSTreeNode treeNodeWithRepresentedObject:obj];
                 [self.treeController insertObject:node atArrangedObjectIndexPath:originalIndex];
                 
                 [self recursiveChildrenWithObject:obj withParentIndex:originalIndex];
@@ -237,6 +275,52 @@
     }
 }
 
+- (void)recursiveChildrenWithObject:(id)obj withParentIndex:(NSIndexPath*)originalIndex {
+    NSArray *children = [self.delegate childrenForItem:obj];
+    
+    if (children.count > 0) {
+        int x = 0;
+        for (id child in children) {
+            NSTreeNode *childNode = [NSTreeNode treeNodeWithRepresentedObject:child];
+            NSIndexPath *indexPath = [originalIndex indexPathByAddingIndex:x];
+            [self.treeController insertObject:childNode atArrangedObjectIndexPath:indexPath];
+            
+            [self recursiveChildrenWithObject:child withParentIndex:indexPath];
+            
+            x++;
+        }
+    }
+}
+
+- (void)updateNodesIndexes {
+    int i = 0;
+    for (NSTreeNode *node in [self.content sortedArrayUsingDescriptors:[self.delegate sortDescriptors]]) {
+        if ([node respondsToSelector:@selector(representedObject)]) {
+            [[node representedObject] setValue:[NSNumber numberWithInt:i] forKeyPath:[self.delegate indexKey]];
+            
+            if (node.childNodes.count > 0) {
+                [self recursiveUpdateNodesIndexesWithNode:node];
+            }
+            
+            i++;
+        }
+    }
+}
+
+- (void)recursiveUpdateNodesIndexesWithNode:(NSTreeNode*)node {
+    int i = 0;
+    
+    for (NSTreeNode *child in [[node childNodes] sortedArrayUsingDescriptors:[self.delegate sortDescriptors]]) {
+        [[child representedObject] setValue:[NSNumber numberWithInt:i] forKeyPath:[self.delegate indexKey]];
+        
+        if (child.childNodes.count > 0) {
+            [self recursiveUpdateNodesIndexesWithNode:child];
+        }
+        
+        i++;
+    }
+}
+
 - (NSIndexPath*)recursiveFindItemWithObject:(NSTreeNode*)node andParentIndex:(NSIndexPath*)originalIndex withUniqueIdentifier:(NSString*)uniqueIdentifier {
     NSArray *children = [[node childNodes] sortedArrayUsingDescriptors:[self.delegate sortDescriptors]];
     
@@ -258,30 +342,13 @@
     return originalIndex;
 }
 
-- (void)recursiveChildrenWithObject:(id)obj withParentIndex:(NSIndexPath*)originalIndex {
-    NSArray *children = [self.delegate childrenForItem:obj];
-    
-    if (children.count > 0) {
-        int x = 0;
-        for (id child in children) {
-            NSTreeNode *childNode = [NSTreeNode treeNodeWithRepresentedObject:child];
-            NSIndexPath *indexPath = [originalIndex indexPathByAddingIndex:x];
-            [self.treeController insertObject:childNode atArrangedObjectIndexPath:indexPath];
-            
-            [self recursiveChildrenWithObject:child withParentIndex:indexPath];
-            
-            x++;
-        }
-    }
-}
-
-- (id)itemWithUniqueIdentifier:(NSString*)uniqueIdentifier {
+- (NSTreeNode*)nodeWithUniqueIdentifier:(NSString*)uniqueIdentifier {
     for (NSTreeNode *node in self.content) {
         if ([[self.delegate uniqueIdentifierForItem:[node representedObject]] isEqualToString:uniqueIdentifier]) {
-            return [node representedObject];
+            return node;
         }
         else {
-            id item = [self recursiveItemWithNode:node andUniqueIdentifier:uniqueIdentifier];
+            NSTreeNode *item = [self recursiveNode:node andUniqueIdentifier:uniqueIdentifier];
             
             if (item != nil) {
                 return item;
@@ -291,16 +358,16 @@
     return nil;
 }
 
-- (id)recursiveItemWithNode:(NSTreeNode*)node andUniqueIdentifier:(NSString*)uniqueIdentifier {
+- (NSTreeNode*)recursiveNode:(NSTreeNode*)node andUniqueIdentifier:(NSString*)uniqueIdentifier {
     NSArray *children = [node childNodes];
     
     if (children.count > 0) {
         for (NSTreeNode *node in children) {
             if ([[self.delegate uniqueIdentifierForItem:[node representedObject]] isEqualToString:uniqueIdentifier]) {
-                return [node representedObject];
+                return node;
             }
             else {
-                id item = [self recursiveItemWithNode:node andUniqueIdentifier:uniqueIdentifier];
+                NSTreeNode *item = [self recursiveNode:node andUniqueIdentifier:uniqueIdentifier];
                 
                 if (item != nil) {
                     return item;
@@ -309,6 +376,14 @@
         }
     }
     return nil;
+}
+
+- (id)itemWithUniqueIdentifier:(NSString*)uniqueIdentifier {
+    return [[self nodeWithUniqueIdentifier:uniqueIdentifier] representedObject];
+}
+
+- (NSInteger)countOfChildrenForUniqueIdentifier:(NSString*)item {
+    return [[[self nodeWithUniqueIdentifier:item] childNodes] count];
 }
 
 #pragma mark -
@@ -410,7 +485,74 @@
         }
         
         if (index == -1) {
-            return [self.delegate sourceListShouldAcceptDropOfItems:realObjs onItem:[[item representedObject] representedObject]];
+            id rep = [item representedObject];
+            if ([rep isMemberOfClass:[NSTreeNode class]]) {
+                rep = [rep representedObject];
+            }
+            
+            if ([self.delegate sourceListShouldAcceptDropOfItems:realObjs onItem:rep]) {
+                [self rearrangeObjects];
+                
+                [self updateNodesIndexes];
+                
+                return YES;
+            }
+        }
+        else {
+            if ([self.delegate respondsToSelector:@selector(sourceListShouldAcceptDropOfItems:onItem:asChildrenAtIndex:)]) {
+                return [self.delegate sourceListShouldAcceptDropOfItems:realObjs onItem:[[item representedObject] representedObject] asChildrenAtIndex:index];
+            }
+            else {
+                NSTreeNode *updatedItem = item;
+                NSString *parentIdentifier = [self.delegate parentUniqueIdentifierForItem:realObjs[0]];
+                
+                if (![parentIdentifier isEqualToString:[self.delegate uniqueIdentifierForItem:[[item representedObject] representedObject]]]) {
+                    if (![self outlineView:outlineView acceptDrop:info item:item childIndex:-1]) {
+                        return NO;
+                    }
+                    
+                    updatedItem = [self nodeWithUniqueIdentifier:[self.delegate uniqueIdentifierForItem:[[item representedObject] representedObject]]];
+                }
+                
+                NSInteger oldRow = [[realObjs[0] valueForKey:[self.delegate indexKey]] integerValue];
+                NSInteger updatedRow = index;
+                if (oldRow < index) {
+                    updatedRow--;
+                }
+                
+                [realObjs[0] setValue:@(updatedRow) forKeyPath:[self.delegate indexKey]];
+                
+                NSArray *realNodes = [updatedItem childNodes];
+                
+                if (realNodes.count > 0 && [[realNodes[0] representedObject] isMemberOfClass:[NSTreeNode class]]) {
+                    NSMutableArray *temp = [NSMutableArray array];
+                    for (id fakeTreeNode in realNodes) {
+                        [temp addObject:[fakeTreeNode representedObject]];
+                    }
+                    realNodes = temp;
+                }
+                
+                NSArray *orderedChildren = [realNodes sortedArrayUsingDescriptors:[self.delegate sortDescriptors]];
+                
+                if (oldRow < index) {
+                    for (NSInteger i = oldRow; i < index; i++) {
+                        if (![[self.delegate uniqueIdentifierForItem:[orderedChildren[i] representedObject]] isEqualToString:items[0]]) {
+                            [[orderedChildren[i] representedObject] setValue:@(([[[orderedChildren[i] representedObject] valueForKey:[self.delegate indexKey]] intValue] != 0)?[[[orderedChildren[i] representedObject] valueForKey:[self.delegate indexKey]] intValue]-1:0) forKey:[self.delegate indexKey]];
+                        }
+                    }
+                }
+                else {
+                    for (NSInteger i = oldRow; i >= index; i--) {
+                        if (![[self.delegate uniqueIdentifierForItem:[orderedChildren[i] representedObject]] isEqualToString:items[0]]) {
+                            [[orderedChildren[i] representedObject] setValue:@([[[orderedChildren[i] representedObject] valueForKey:[self.delegate indexKey]] intValue]+1) forKey:[self.delegate indexKey]];
+                        }
+                    }
+                }
+                
+                [self rearrangeObjects];
+                
+                return YES;
+            }
         }
     }
     
@@ -419,19 +561,15 @@
 
 - (NSDragOperation)outlineView:(NSOutlineView *)outlineView validateDrop:(id<NSDraggingInfo>)info proposedItem:(id)item proposedChildIndex:(NSInteger)index {
     if ([info draggingSource] == self.outlineView) {
+        if (index != -1 && ![self.delegate sourceListShouldAllowItemsReordering]) {
+            [outlineView setDropItem:item dropChildIndex:-1];
+        }
+        
         if ([[info draggingPasteboard] dataForType:INSSourceListInternalDragPboardType] != nil) {
             NSData *draggedItemsData = [[info draggingPasteboard] dataForType:INSSourceListInternalDragPboardType];
             NSArray *items = [NSKeyedUnarchiver unarchiveObjectWithData:draggedItemsData];
             
             for (NSString *identifier in items) {
-//                if (index == -1) {
-//
-//                }
-//                else {
-//                    if ([identifier isEqualToString:[self.delegate uniqueIdentifierForItem:[[item representedObject] representedObject]]]) {
-//                        return NSDragOperationNone;
-//                    }
-//                }
                 NSTreeNode *parent = item;
                 
                 while ([[parent representedObject] respondsToSelector:@selector(representedObject)]) {

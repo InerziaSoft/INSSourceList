@@ -52,7 +52,7 @@
  they're static and there would be no point in storing them.
 */
 - (NSSet*)roots {
-    return [NSSet setWithObjects:@{self.nameKey: @"ITEMS", @"code": @-30}, @{self.nameKey: @"OTHER ITEMS", @"code": @-40}, nil];
+    return [NSSet setWithObjects:[@{self.nameKey: @"ITEMS", @"code": @-30, @"index": @0} mutableCopy], [@{self.nameKey: @"OTHER ITEMS", @"code": @-40, @"index": @1} mutableCopy], nil];
 }
 
 /*
@@ -206,13 +206,23 @@
  If you want to sort the SourceList, return one or more valid Sort Descriptors.
  To access to the object of each row, use the representedObject key.
  
+ If you want to take advantage of the automatic Drag and Drop sorting of INSSourceList,
+ one of the NSSortDescriptor(s) below must contain the index key.
+ 
  Please note that sorting also modify the order of the root items.
 */
 - (NSArray*)sortDescriptors {
-    return @[[NSSortDescriptor sortDescriptorWithKey:@"representedObject.name" ascending:YES]];
+    return @[[NSSortDescriptor sortDescriptorWithKey:@"representedObject.index" ascending:YES]];
 }
 
+#pragma mark -
+#pragma mark Handling Drag and Drop
+
 - (BOOL)sourceListShouldSupportInternalDragAndDrop {
+    return YES;
+}
+
+- (BOOL)sourceListShouldAllowItemsReordering {
     return YES;
 }
 
@@ -235,18 +245,39 @@
     return NO;
 }
 
+- (NSString*)indexKey {
+    return @"index";
+}
+
+- (NSString*)parentUniqueIdentifierForItem:(id)item {
+    if ([item isMemberOfClass:[NSManagedObject class]]) {
+        if ([item valueForKeyPath:@"parent"] != nil) {
+            return [self uniqueIdentifierForItem:[item valueForKeyPath:@"parent"]];
+        }
+        else {
+            return ([((NSManagedObject*)item).entity.name isEqualToString:@"Item"])?[@-30 stringValue]:[@-40 stringValue];
+        }
+    }
+    
+    return nil;
+}
+
 #pragma mark -
 #pragma mark Core Data
 
 - (IBAction)addItem:(id)sender {
     NSManagedObject *obj = [[NSManagedObject alloc] initWithEntity:[NSEntityDescription entityForName:@"Item" inManagedObjectContext:self.managedObjectContext] insertIntoManagedObjectContext:self.managedObjectContext];
-    [obj setValue:@"New Object" forKeyPath:@"name"];
+    long index = (long)[self.sourceList countOfChildrenForUniqueIdentifier:[@-30 stringValue]];
+    [obj setValue:[NSString stringWithFormat:@"New Object %li", index+1] forKeyPath:@"name"];
+    [obj setValue:[NSNumber numberWithLong:index] forKeyPath:@"index"];
     [obj setValue:[NSDate date] forKeyPath:@"added"];
 }
 
 - (IBAction)addOtherItem:(id)sender {
     NSManagedObject *obj = [[NSManagedObject alloc] initWithEntity:[NSEntityDescription entityForName:@"OtherItem" inManagedObjectContext:self.managedObjectContext] insertIntoManagedObjectContext:self.managedObjectContext];
-    [obj setValue:@"New Object" forKeyPath:@"name"];
+    long index = (long)[self.sourceList countOfChildrenForUniqueIdentifier:[@-40 stringValue]];
+    [obj setValue:[NSString stringWithFormat:@"New Object %li", index+1] forKeyPath:@"name"];
+    [obj setValue:[NSNumber numberWithLong:index] forKeyPath:@"index"];
     [obj setValue:[NSDate date] forKeyPath:@"added"];
 }
 
