@@ -169,7 +169,6 @@
  *  Enables or disables Drag and Drop from inside the SourceList.
  *
  *  @discussion This method is optional. If no implementation is found, dragging is only allowed depending on the supportedDraggedTypes.
- *  @see sourceListShouldSupportDragAndDrop
  *  @since version 1.1 or later.
  *  @return YES if the SourceList should support drag and drop between its items.
 **/
@@ -228,7 +227,7 @@
  *  @param pasteboardType The NSPasteboard type from which the items have been extracted.
  *  @param item The item on which the items have been dropped.
  *  @param index The index at which the items have been dropped, or -1 if the drop ended right on item.
- *  @see sourceListShouldSupportDragAndDrop, supportedDraggedTypes
+ *  @see supportedDraggedTypes
  *  @since version 1.1 or later
  *  @return YES if the drop should be accepted.
 **/
@@ -241,7 +240,7 @@
  *  @param outlineView The OutlineView of the SourceList. Use this object to redirect drops, if necessary.
  *  @param items The array of items that the user is dragging.
  *  @param parent The parent object on which the user is dragging.
- *  @see sourceListShouldSupportDragAndDrop, sourceListShouldSupportInternalDragAndDrop
+ *  @see sourceListShouldSupportInternalDragAndDrop
  *  @since version 1.1 or later
  *  @return A NSDragOperation that should be used.
 **/
@@ -251,6 +250,7 @@
  *  Called when the user wants to start a drag.
  *
  *  @discussion The delegate should decide whether a drag of the selected items is allowed or not. If this method is not implemented, any item of the SourceList can be dragged.
+ *  @param items An array of items that the user is trying to drag.
  *  @see sourceListShouldSupportInternalDragAndDrop
  *  @since version 1.1 or later
  *  @return YES if the drag should be allowed.
@@ -273,7 +273,7 @@
  *  @discussion This method is required as a workaround to a bug of the NSTreeController that deletes the original NSIndexPath of a dragged object.
  *  @warning If sourceListShouldAllowItemsReordering returns YES, this method is foundamental for the entire operation to work properly. If this method is not implemented, an exception will be thrown and the reordering operation will be dismissed.
  *  @param item The item for which we are asking its parent.
- *  @see sourceListShouldAllowItesmReordering
+ *  @see sourceListShouldAllowItemsReordering
  *  @since version 1.1 or later
  *  @return A NSString representing the unique identifier of the parent.
 **/
