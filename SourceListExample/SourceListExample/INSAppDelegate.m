@@ -218,14 +218,34 @@
 #pragma mark -
 #pragma mark Handling Drag and Drop
 
+/*
+ SourceList should Support Internal Drag and Drop
+ 
+ If this method returns YES, the SourceList will allow the user
+ to drag its items onto itself.
+ 
+ This, combined with sourceListShouldAllowItemsReordering and no implementation
+ of sourceListShouldAcceptDropOfItems:onItem:asChildrenAtIndex:, will enable
+ the Automatic Rows Reordering function of the INSSourceList.
+*/
 - (BOOL)sourceListShouldSupportInternalDragAndDrop {
     return YES;
 }
+
 
 - (BOOL)sourceListShouldAllowItemsReordering {
     return YES;
 }
 
+/*
+ SourcdeList should Accept Drop of Items on Item
+ 
+ This method is called when the user completed a drop of
+ an item on another item.
+ 
+ The delegate should update its data to reflect the new
+ relationship and return YES.
+*/
 - (BOOL)sourceListShouldAcceptDropOfItems:(NSArray *)items onItem:(id)item {
     if ([item isMemberOfClass:[NSManagedObject class]]) {
         for (NSManagedObject *obj in items) {
@@ -234,8 +254,8 @@
         }
     }
     else {
-        for (NSManagedObject *obj in items) {
-            if (([obj.entity.name isEqualToString:@"Item"] && [[item valueForKey:@"code"] intValue] == -30) || ([obj.entity.name isEqualToString:@"OtherItem"] && [[item valueForKey:@"code"] intValue] == -40)) {
+        for (id obj in items) {
+            if ([obj isMemberOfClass:[NSManagedObject class]] && (([((NSManagedObject*)obj).entity.name isEqualToString:@"Item"] && [[item valueForKey:@"code"] intValue] == -30) || ([((NSManagedObject*)obj).entity.name isEqualToString:@"OtherItem"] && [[item valueForKey:@"code"] intValue] == -40))) {
                 [obj setValue:nil forKey:@"parent"];
                 return YES;
             }
@@ -245,10 +265,28 @@
     return NO;
 }
 
+/*
+ Index Key
+ 
+ The key returned by this method will be used by
+ the Automatic Rows Reordering function of the INSSourceList
+ to store the index of each item.
+ 
+ Please note that the same key must be included in one of the
+ NSSortDescriptors returned by sortDescriptors, for the
+ Automatic Rows Reordering to work properly.
+*/
 - (NSString*)indexKey {
     return @"index";
 }
 
+/*
+ Parent Unique Identifier for Item
+ 
+ We've been forced to implement a method to request this information
+ because of a strange issue with the NSTreeController: the parentNode
+ method called on a NSTreeNode during drag returns nil.
+*/
 - (NSString*)parentUniqueIdentifierForItem:(id)item {
     if ([item isMemberOfClass:[NSManagedObject class]]) {
         if ([item valueForKeyPath:@"parent"] != nil) {
@@ -261,6 +299,77 @@
     
     return nil;
 }
+
+/*
+ SourceList should Validate Drop of Unique Identifiers on Item
+ 
+ Called when all the common situations of the SourceList are not met and
+ the validation should proceed to the delegate.
+ 
+ In this example, we chose to not perform any kind of check before drop.
+
+- (NSDragOperation)sourceListShouldValidateDropOnOutlineView:(NSOutlineView*)outlineView ofUniqueIdentifiers:(NSArray *)items onItem:(id)parent {
+    
+}*/
+
+/*
+ Supported Dragged Types
+ 
+ Implement this method if you want to support
+ dragging from other applications or other
+ tables in your project.
+ 
+ In this example, we are accepting filenames.
+*/
+- (NSArray*)supportedDraggedTypes {
+    return [NSArray arrayWithObject:NSFilenamesPboardType];
+}
+
+- (BOOL)sourceListShouldAcceptDropOfDataInPasteboard:(NSPasteboard *)pasteboard ofType:(NSString *)pasteboardType onItem:(id)item asChildrenAtIndex:(NSInteger)index {
+    for (NSString *filename in [pasteboard propertyListForType:pasteboardType]) {
+        NSEntityDescription *entity = nil;
+        NSManagedObject *parent = nil;
+        
+        if ([item isMemberOfClass:[NSManagedObject class]]) {
+            if ([((NSManagedObject*)item).entity.name isEqualToString:@"Item"]) {
+                entity = [NSEntityDescription entityForName:@"Item" inManagedObjectContext:self.managedObjectContext];
+            }
+            else {
+                entity = [NSEntityDescription entityForName:@"OtherItem" inManagedObjectContext:self.managedObjectContext];
+            }
+            
+            parent = item;
+        }
+        else {
+            if ([[item valueForKey:@"code"] intValue] == -30) {
+                entity = [NSEntityDescription entityForName:@"Item" inManagedObjectContext:self.managedObjectContext];
+            }
+            else {
+                entity = [NSEntityDescription entityForName:@"OtherItem" inManagedObjectContext:self.managedObjectContext];
+            }
+        }
+        
+        NSManagedObject *obj = [[NSManagedObject alloc] initWithEntity:entity insertIntoManagedObjectContext:self.managedObjectContext];
+        [obj setValue:[[filename lastPathComponent] stringByDeletingPathExtension] forKeyPath:@"name"];
+        [obj setValue:[NSNumber numberWithInt:((index==-1)?0:(int)index)] forKeyPath:@"index"];
+        [obj setValue:parent forKey:@"parent"];
+        [obj setValue:[NSDate date] forKeyPath:@"added"];
+    }
+    
+    return YES;
+}
+
+/*
+ Source List should Validate Drag of Items
+ 
+ If you want to prevent dragging some of the items of the SourceList,
+ you should implement this method in your delegate and return NO.
+ 
+ In this example, we are allowing the user to drag any item.
+
+- (BOOL)sourceListShouldValidateDragOfItems:(NSArray*)items {
+    
+}*/
 
 #pragma mark -
 #pragma mark Core Data

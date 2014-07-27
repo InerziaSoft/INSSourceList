@@ -138,15 +138,13 @@
                 [draggedTypes addObject:INSSourceListInternalDragPboardType];
             }
             
-            if ([self.delegate respondsToSelector:@selector(sourceListShouldSupportDragAndDrop)] && [self.delegate sourceListShouldSupportDragAndDrop]) {
-                if ([self.delegate respondsToSelector:@selector(supportedDraggedTypes)]) {
-                    [draggedTypes addObjectsFromArray:[self.delegate supportedDraggedTypes]];
-                }
-                else {
-                    @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:[NSString stringWithFormat:@"-[%@ %@]: delegate wants external drag and drop on SourceList, but does not provide an array of supportedDraggedTypes.", NSStringFromClass([self class]), NSStringFromSelector(_cmd)] userInfo:nil];
-                }
+            if ([self.delegate respondsToSelector:@selector(supportedDraggedTypes)]) {
+                [draggedTypes addObjectsFromArray:[self.delegate supportedDraggedTypes]];
             }
-            
+            else {
+                @throw [NSException exceptionWithName:NSInternalInconsistencyException reason:[NSString stringWithFormat:@"-[%@ %@]: delegate wants external drag and drop on SourceList, but does not provide an array of supportedDraggedTypes.", NSStringFromClass([self class]), NSStringFromSelector(_cmd)] userInfo:nil];
+            }
+        
             [_outlineView registerForDraggedTypes:draggedTypes];
             
             [_outlineView setFloatsGroupRows:NO];
@@ -555,6 +553,23 @@
             }
         }
     }
+    else {
+        for (NSString *dropType in self.outlineView.registeredDraggedTypes) {
+            if ([[[info draggingPasteboard] types] containsObject:dropType]) {
+                if ([self.delegate respondsToSelector:@selector(sourceListShouldAcceptDropOfDataInPasteboard:ofType:onItem:asChildrenAtIndex:)]) {
+                    BOOL accepted = [self.delegate sourceListShouldAcceptDropOfDataInPasteboard:[info draggingPasteboard] ofType:dropType onItem:[[item representedObject] representedObject] asChildrenAtIndex:index];
+                    
+                    if (accepted) {
+                        [self rearrangeObjects];
+                        return YES;
+                    }
+                }
+                else {
+                    return NO;
+                }
+            }
+        }
+    }
     
     return NO;
 }
@@ -582,6 +597,10 @@
                     parent = [parent parentNode];
                 }
             }
+            
+            if ([self.delegate respondsToSelector:@selector(sourceListShouldValidateDropOnOutlineView:ofUniqueIdentifiers:onItem:)]) {
+                return [self.delegate sourceListShouldValidateDropOnOutlineView:outlineView ofUniqueIdentifiers:items onItem:[[item representedObject] representedObject]];
+            }
         }
     }
     
@@ -590,12 +609,18 @@
 
 - (BOOL)outlineView:(NSOutlineView *)outlineView writeItems:(NSArray *)items toPasteboard:(NSPasteboard *)pasteboard {
     if ([self.delegate sourceListShouldSupportInternalDragAndDrop]) {
+        NSMutableArray *realItemsIdentifiers = [NSMutableArray array];
         NSMutableArray *realItems = [NSMutableArray array];
         for (NSTreeNode *node in items) {
-            [realItems addObject:[self.delegate uniqueIdentifierForItem:[[node representedObject] representedObject]]];
+            [realItemsIdentifiers addObject:[self.delegate uniqueIdentifierForItem:[[node representedObject] representedObject]]];
+            [realItems addObject:[[node representedObject] representedObject]];
         }
         
-        NSData *realData = [NSKeyedArchiver archivedDataWithRootObject:realItems];
+        if ([self.delegate respondsToSelector:@selector(sourceListShouldValidateDragOfItems:)] && ![self.delegate sourceListShouldValidateDragOfItems:realItems]) {
+            return NO;
+        }
+        
+        NSData *realData = [NSKeyedArchiver archivedDataWithRootObject:realItemsIdentifiers];
         [pasteboard declareTypes:[NSArray arrayWithObject:INSSourceListInternalDragPboardType] owner:self];
         [pasteboard setData:realData forType:INSSourceListInternalDragPboardType];
         return YES;

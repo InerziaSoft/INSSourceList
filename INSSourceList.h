@@ -12,6 +12,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
+// INSSourceList version 1.1
+
 #import <Cocoa/Cocoa.h>
 
 #pragma mark - INSSourceListDelegate
@@ -164,16 +166,6 @@
 **/
 
 /**
- *  Enables or disables Drag and Drop from outside the SourceList.
- *
- *  @discussion This method is optional. If no implementation is found, drag and drop is disabled.
- *  @see sourceListShouldSupportInternalDragAndDrop
- *  @since version 1.1 or later.
- *  @return YES if the SourceList should support drag and drop.
-**/
-- (BOOL)sourceListShouldSupportDragAndDrop;
-
-/**
  *  Enables or disables Drag and Drop from inside the SourceList.
  *
  *  @discussion This method is optional. If no implementation is found, dragging is only allowed depending on the supportedDraggedTypes.
@@ -227,6 +219,43 @@
  *  @return YES if the drop should be accepted.
 **/
 - (BOOL)sourceListShouldAcceptDropOfItems:(NSArray*)items onItem:(id)parent asChildrenAtIndex:(NSInteger)index;
+
+/**
+ *  Called when something not coming from the SourceList has been dropped onto the SourceList.
+ *
+ *  @discussion The delegate should its data in order to react to the dropped item. There's no need to call rearrangeObjects on the SourceList after.
+ *  @param pasteboard The draggingPasteboard of the drop operation.
+ *  @param pasteboardType The NSPasteboard type from which the items have been extracted.
+ *  @param item The item on which the items have been dropped.
+ *  @param index The index at which the items have been dropped, or -1 if the drop ended right on item.
+ *  @see sourceListShouldSupportDragAndDrop, supportedDraggedTypes
+ *  @since version 1.1 or later
+ *  @return YES if the drop should be accepted.
+**/
+- (BOOL)sourceListShouldAcceptDropOfDataInPasteboard:(NSPasteboard*)pasteboard ofType:(NSString*)pasteboardType onItem:(id)item asChildrenAtIndex:(NSInteger)index;
+
+/**
+ *  Called when the delegate should validate a drop operation onto an object.
+ *
+ *  @discussion The SourceList automatically invalidates common situations, such as dragging a parent onto its children. If no implementation of this method is found, the SourceList will handle the validation.
+ *  @param outlineView The OutlineView of the SourceList. Use this object to redirect drops, if necessary.
+ *  @param items The array of items that the user is dragging.
+ *  @param parent The parent object on which the user is dragging.
+ *  @see sourceListShouldSupportDragAndDrop, sourceListShouldSupportInternalDragAndDrop
+ *  @since version 1.1 or later
+ *  @return A NSDragOperation that should be used.
+**/
+- (NSDragOperation)sourceListShouldValidateDropOnOutlineView:(NSOutlineView*)outlineView ofUniqueIdentifiers:(NSArray*)items onItem:(id)parent;
+
+/**
+ *  Called when the user wants to start a drag.
+ *
+ *  @discussion The delegate should decide whether a drag of the selected items is allowed or not. If this method is not implemented, any item of the SourceList can be dragged.
+ *  @see sourceListShouldSupportInternalDragAndDrop
+ *  @since version 1.1 or later
+ *  @return YES if the drag should be allowed.
+**/
+- (BOOL)sourceListShouldValidateDragOfItems:(NSArray*)items;
 
 /**
  *  Returns the name of the key that should be used to handle row re-ordering in the SourceList.
