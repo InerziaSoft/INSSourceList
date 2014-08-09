@@ -66,7 +66,7 @@ Other Stuff
 =============
 
 ## What's Missing
-Actually, the SourceList supports almost all the features we planned for it. If you're interested in contributing, don't hesitate to fork this repo!
+Currently, the SourceList supports almost all the features we planned for it. If you're interested in contributing, don't hesitate to fork this repo!
 
 ## Special Thanks
 * The StackOverflow community
