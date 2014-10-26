@@ -220,6 +220,15 @@
 - (BOOL)sourceListShouldAcceptDropOfItems:(NSArray*)items onItem:(id)parent asChildrenAtIndex:(NSInteger)index;
 
 /**
+ *  Called when the user is dragging something on the SourceList.
+ *
+ *  @discussion The SourceList will allow dragging on it only types that are registered as supportedDraggedTypes.
+ *  @see supportedDraggedTypes
+ *  @since version 1.1 or later
+**/
+- (NSDragOperation)sourceListShouldValidateDropOfDataInPasteboard:(NSPasteboard*)pasteboard onItem:(id)item asChildrenAtIndex:(NSInteger)index;
+
+/**
  *  Called when something not coming from the SourceList has been dropped onto the SourceList.
  *
  *  @discussion The delegate should its data in order to react to the dropped item. There's no need to call rearrangeObjects on the SourceList after.
